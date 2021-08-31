@@ -1,7 +1,18 @@
 // SPDX-License-Identifier: FSFAP
 
 export const { entries, defineProperties } = Object;
-const { atan2, PI } = Math;
+const { atan2, PI, min, max, round } = Math;
+
+export const randomSet = (...args: ([number, number] | number)[]) => {
+  const set = args[round(random(args.length - 1))];
+  return random(...(set[0] ? set : [set]) as [number]);
+};
+
+export const random = ($1: number, $2 = 0) =>
+  Math.random() * (max($1, $2) - min($1, $2)) + min($1, $2);
+
+export const clamp = (value: number, minValue: number, maxValue: number) =>
+  min(max(value, minValue), maxValue);
 
 export const deg2rad = (degree: number) => degree * (PI / 180);
 
