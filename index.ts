@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: FSFAP
 
-export const { entries, defineProperties } = Object;
 const { PI, min, max, round } = Math;
 
 export const randomSet = (...args: ([number, number] | number)[]) => {

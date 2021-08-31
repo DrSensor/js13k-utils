@@ -25,7 +25,7 @@ const JSX_PROPS = process.env.JSX_PROPS;
 const JSX_GC = process.env.JSX_GC;
 
 import type { Key, Never, NonLiteral, Primitive } from ".";
-import { defineProperties, entries } from ".";
+const { entries, defineProperties } = Object;
 
 const Fragment: Record<Key, never> = {};
 // const symNode = Symbol(); // fun fact: it's possible to use `undefined`, `null`, or `NaN` as a key 😃
@@ -89,6 +89,7 @@ const state = <T extends Primitive>(data?: T): JSX.State<NonLiteral<T>> => {
         nodes.size
           ? nodes.forEach((it) => it.nodeValue = data = val)
           : data = val;
+
       return defineProperties( // "S"
         assign((val?: T & string) => val === undefined ? data : set(val), {
           *[Symbol.iterator]() { // "react"
@@ -456,10 +457,10 @@ const createElement: JSX.Factory = (
   }
 };
 
-let mode: 0 | 1;
+let mode: Mode;
 export const HTML_MODE = 0;
 export const SVG_MODE = 1;
-export const setMode = (mode$: typeof mode) => mode = mode$;
+export const jsxMode = (mode$: typeof mode) => mode = mode$;
 if (!JSX_FACTORY && JSX_MODE === "svg") mode = 1;
 
 /** @internal create class or function component */
@@ -513,6 +514,10 @@ const Unimplemented = (fn: Function, feat: string, cond: string = "is set") =>
 
 // type StateValue = Exclude<Primitive, boolean>;
 declare global {
+  const enum Mode {
+    HTML = 0,
+    SVG = 1,
+  }
   namespace NodeJS {
     interface ProcessEnv {
       JSX_FACTORY?: "html" | "svg";
