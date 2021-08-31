@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: FSFAP
 
 export const { entries, defineProperties } = Object;
+const { atan2, PI } = Math;
+
+export const deg2rad = (degree: number) => degree * (PI / 180);
+
+// BUG: somehow terser give an error if rad2deg is exported
+const rad2deg = (radian: number) => radian * (180 / PI);
 
 export type NotSame<T1, T2> = T1 extends T2 ? never : T1;
 
