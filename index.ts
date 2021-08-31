@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSFAP
 
 export const { entries, defineProperties } = Object;
-const { atan2, PI, min, max, round } = Math;
+const { PI, min, max, round } = Math;
 
 export const randomSet = (...args: ([number, number] | number)[]) => {
   const set = args[round(random(args.length - 1))];
@@ -16,8 +16,7 @@ export const clamp = (value: number, minValue: number, maxValue: number) =>
 
 export const deg2rad = (degree: number) => degree * (PI / 180);
 
-// BUG: somehow terser give an error if rad2deg is exported
-const rad2deg = (radian: number) => radian * (180 / PI);
+export const rad2deg = (radian: number) => radian * (180 / PI);
 
 /** Something like OOP getter/setter but for function arguments
  *
