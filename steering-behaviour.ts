@@ -29,8 +29,8 @@ export const steer = (
       sign(handling) * tanh(abs(deg2rad(degree))) ** abs(handling)
     )) ** 1.5;
     apply(
-      transform = transform.rotate(degree) //steer + degree)
-        .translate(0, distance * drift), //(velocity + distance) * drift),
+      transform = transform.rotate(degree)
+        .translate(0, distance * drift),
     );
   };
   return move as Steer;

@@ -51,7 +51,7 @@ export default (kp: number, kd = 0, ki = 0) => {
         output += ki * errorSum;
       }
       if (!PID_MODE || PID_MODE === "PD" || "PID" === PID_MODE) {
-        lastTime = currentTime; // TODO: store performance.now() into variable to avoid duplication when bundled
+        lastTime = currentTime;
       }
       return output;
     },
