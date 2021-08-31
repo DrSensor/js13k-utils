@@ -3,6 +3,12 @@
 import { rad2deg } from ".";
 const { atan2 } = Math;
 
+// TODO: utils to convert coordinate across SVG
+// https://www.sitepoint.com/how-to-translate-from-dom-to-svg-coordinates-and-back-again
+
+// Works perfectly okay 😉
+// document.createElementNS("http://www.w3.org/2000/svg", "rect").ownerSVGElement?.createSVGTransformFromMatrix(new DOMMatrix()).angle
+
 // https://css-tricks.com/get-value-of-css-rotation-through-javascript
 // TODO: read SVGGraphicsElement.prototype.getCTM() and SVGTransform
 export const matrixAngle = ({ a, b }: DOMMatrix2DInit) => rad2deg(atan2(b, a));

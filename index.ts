@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: FSFAP
 
 const { PI, min, max, round } = Math;
+const { assign } = Object;
+const { iterator } = Symbol;
 
 export const randomSet = (...args: ([number, number] | number)[]) => {
   const set = args[round(random(args.length - 1))];
@@ -71,6 +73,7 @@ type VArgs<T extends AnyFunc> = Values<Parameters<T>>;
 type Accessor<T extends [...any[]]> =
   & { [I in keyof T]: I extends number ? (value?: T[I]) => T[I] : never }
   & { length: T["length"] };
+
 export type Values<T> = T[keyof T];
 
 export type AnyArrow = (...args: any[]) => any;
