@@ -25,9 +25,9 @@ export const diff = ($1: number, $2: number) => {
     : sign(abs($min) > $max ? $min : $max) * ($max - abs($min));
 };
 
-export const deg2rad = (degree: number) => degree * (PI / 180);
+export const radian = (degree: number) => degree * (PI / 180);
 
-export const rad2deg = (radian: number) => radian * (180 / PI);
+export const degree = (radian: number) => radian * (180 / PI);
 
 /** Something like OOP getter/setter but for function arguments
  *

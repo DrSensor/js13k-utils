@@ -1,7 +1,7 @@
 // Copyright (c) Fahmi Akbar Wildana
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-import { clamp, deg2rad, diff } from ".";
+import { clamp, radian, diff } from ".";
 const { tanh, abs, sign } = Math;
 
 const constraint = clamp(-1, 1);
@@ -29,7 +29,7 @@ export const steer = (
     handling = constraint(handling ?? 0);
     if (handling < 0) handling = diff(-1, handling);
     const drift = (1 + (
-      sign(handling) * tanh(abs(deg2rad(degree))) ** abs(handling)
+      sign(handling) * tanh(abs(radian(degree))) ** abs(handling)
     )) ** 1.5;
     apply(
       transform = transform.rotate(degree)

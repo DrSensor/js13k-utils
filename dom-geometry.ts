@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: FSFAP
 
-import { rad2deg } from ".";
+import { degree } from ".";
 const { atan2 } = Math;
 
 // TODO: utils to convert coordinate across SVG
@@ -11,7 +11,7 @@ const { atan2 } = Math;
 
 // https://css-tricks.com/get-value-of-css-rotation-through-javascript
 // TODO: read SVGGraphicsElement.prototype.getCTM() and SVGTransform
-export const matrixAngle = ({ a, b }: DOMMatrix2DInit) => rad2deg(atan2(b, a));
+export const matrixAngle = ({ a, b }: DOMMatrix2DInit) => degree(atan2(b, a));
 export const matrixScale = ({ a, b }: DOMMatrix2DInit) =>
   (a ** 2 + b ** 2) ** .5;
 
@@ -43,7 +43,7 @@ export const diff = (source: Rectangle, target: Rectangle) => ({
 
 export const lineAngle = (source: Rectangle, target: Rectangle) => {
   const d = diff(source, target);
-  return rad2deg(atan2(d.x, d.y));
+  return degree(atan2(d.x, d.y));
 };
 
 export const lineDistance = (source: Rectangle, target: Rectangle) => {
