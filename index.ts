@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: FSFAP
 
-const { PI, min, max, round } = Math;
+const { PI, min, max, round, sign, abs } = Math;
 const { assign } = Object;
 const { iterator } = Symbol;
 
@@ -12,8 +12,18 @@ export const randomSet = (...args: ([number, number] | number)[]) => {
 export const random = ($1: number, $2 = 0) =>
   Math.random() * (max($1, $2) - min($1, $2)) + min($1, $2);
 
-export const clamp = (value: number, minValue: number, maxValue: number) =>
-  min(max(value, minValue), maxValue);
+export const clamp = ($min: number, $max: number) =>
+  (value: number) => min(max(value, $min), $max);
+
+export const iclamp = (identity: number) =>
+  clamp(-abs(identity), abs(identity)); // using abs() seems redundant 😅
+
+export const diff = ($1: number, $2: number) => {
+  const $max = max($1, $2), $min = min($1, $2);
+  return $min < 0 && sign($min) == sign($max)
+    ? $min - $max
+    : sign(abs($min) > $max ? $min : $max) * ($max - abs($min));
+};
 
 export const deg2rad = (degree: number) => degree * (PI / 180);
 
