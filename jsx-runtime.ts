@@ -156,7 +156,9 @@ const jsx = (tag, props = {} as Record<Key, any>, ...children) => {
         });
       } else return result;
     default:
-      return new DocumentFragment();
+      const fragment = new DocumentFragment();
+      fragment.append(...children);
+      return fragment;
   }
 };
 
