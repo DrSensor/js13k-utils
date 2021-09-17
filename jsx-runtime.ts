@@ -1,459 +1,215 @@
 // Copyright (c) Fahmi Akbar Wildana
 // SPDX-License-Identifier: BSD-2-Clause-Patent
 
-export {
-  as,
-  // asAttribute,
-  // asComment,
-  // asText,
-  // binds,
-  createElement as jsx,
-  Fragment,
-  state,
-};
+export { Fragment, jsx, state };
 
 const JSX_FACTORY = process.env.JSX_FACTORY;
 const JSX_MODE = process.env.JSX_MODE;
 const JSX_FRAGMENT = process.env.JSX_FRAGMENT;
 const JSX_COMPONENT = process.env.JSX_COMPONENT;
+const JSX_STATE_PROPERTY = process.env.JSX_STATE_PROPERTY ?? "value";
 const JSX_REF_ATTRIBUTE = process.env.JSX_REF_ATTRIBUTE;
-const JSX_REF_PROPERTY = process.env.JSX_REF_PROPERTY;
-const JSX_STATE_PROPERTY = process.env.JSX_STATE_PROPERTY;
-// const JSX_STATE_BIND = process.env.JSX_STATE_BIND;
+const JSX_REF_PROPERTY = process.env.JSX_REF_PROPERTY ??
+  JSX_REF_ATTRIBUTE ?? "ref";
 const JSX_STATE = process.env.JSX_STATE;
 const JSX_PROPS = process.env.JSX_PROPS;
 const JSX_GC = process.env.JSX_GC;
 
-import type { Key, Never, NonLiteral, Primitive } from ".";
-const { entries, defineProperties } = Object;
+import type { AnyArrow, Key, Never, NonLiteral, Primitive } from ".";
+const { entries, defineProperties, seal, assign, keys } = Object;
+const { from } = Array;
 
 const Fragment: Record<Key, never> = {};
-// const symNode = Symbol(); // fun fact: it's possible to use `undefined`, `null`, or `NaN` as a key 😃
+const $nodes = Symbol();
 
-const as = <T>(): JSX.Ref<T> => ({});
-
-const isState = <T>(value: any): value is JSX.State<T> => value && value._;
-// typeof value === "object" && symNode in value;
-// JSX_STATE_PROPERTY in value && !keys(value).length; // note that JSX_STATE_PROPERTY enumerable is not set
+const isState = <T>(value: any): value is JSX.State<T> =>
+  value && value[$nodes];
 
 const state = <T extends Primitive>(data?: T): JSX.State<NonLiteral<T>> => {
   const nodes = new Set<Node>();
-  switch (JSX_STATE) {
-    case "vue":
-      return defineProperties({}, {
-        _: { get: () => nodes },
-        [JSX_STATE_PROPERTY ?? "value"]: {
-          get: () => data,
-          set: (val: T & string) =>
-            nodes.size
-              ? nodes.forEach((it) => it.nodeValue = data = val)
-              : data = val,
-        },
-      }) as any;
-    case "react":
-      return defineProperties([
-        () => data,
-        (val: T & string) =>
-          nodes.size
-            ? nodes.forEach((it) => it.nodeValue = data = val)
-            : data = val,
-      ], { _: { get: () => nodes } }) as any;
-    case "S":
-      return defineProperties(
-        (val?: T & string) =>
-          val === undefined // S() read
-            ? data
-            : (nodes.size // S(val) write
-              ? nodes.forEach((it) => it.nodeValue = data = val)
-              : data = val),
-        { _: { get: () => nodes } },
-      ) as any;
-    case "setget":
-      return {
-        get _() {
-          return nodes;
-        },
-        get get() {
-          return data;
-        },
-        set set(val: T & string) {
-          nodes.size
-            ? nodes.forEach((it) => it.nodeValue = data = val)
-            : data = val;
-        },
-      } as any;
-    default:
-      const { assign } = Object;
-      const get = () => data;
-      const set = (val: T & string) =>
-        nodes.size
-          ? nodes.forEach((it) => it.nodeValue = data = val)
-          : data = val;
 
-      return defineProperties( // "S"
-        assign((val?: T & string) => val === undefined ? data : set(val), {
-          *[Symbol.iterator]() { // "react"
-            yield get;
-            yield set;
-          },
-        }),
-        {
-          [JSX_STATE_PROPERTY ?? "value"]: { get, set }, // "vue"
-          ...{ set: { set }, get: { get } }, // "setget"
-          _: { get: () => nodes },
-        },
-      ) as any;
+  // S.data where fn.name is inspired from https://sinuous.dev
+  function observable(value?: T) {
+    if (value) {
+      for (const node of nodes) node.nodeValue = value as string; // Node.prototype.nodeValue has auto .toString()
+      data = value;
+    } else if (value === null) {
+      //@ts-expect-error revoke observable
+      if (new.target) observable = undefined;
+      else {
+        for (const node of nodes) {
+          const { parentElement } = node;
+          if (node instanceof Attr) {
+            parentElement.removeAttributeNode(node);
+          } else parentElement.removeChild(node);
+        }
+        return observable;
+      }
+    }
+    return data;
   }
+
+  const properties = {
+    // Vue ref but handle computed state
+    [JSX_STATE_PROPERTY]: { get: observable, set: observable },
+    [$nodes]: { get: () => nodes }, // cache assigned (Attr | Text) for observable()
+  };
+  return defineProperties(observable, properties) as any;
 };
 
-// const asText = <T extends Primitive>(
-//   data?: T,
-// ): JSX.StateText<NonLiteral<T>> => {
-//   if (JSX_STATE_PROPERTY) {
-//     const txt = new Text(data as string);
-//     return asStateNode(txt, data) as any;
-//   } else return new Text(data as string) as any;
-// };
+//@ts-expect-error
+export const revoke = <T>(ps: JSX.State<T> | JSX.Proxy<T>) => new ps(null); // TODO: make state() return (i.e observable) constructable
 
-// const asAttribute = <T extends Primitive>(
-//   localname: string,
-//   data?: T,
-// ): JSX.StateAttr<NonLiteral<T>> => {
-//   const attr = document.createAttribute(localname);
-//   attr.nodeValue = data as string; // because .value doesn't auto convert to string
-//   return JSX_STATE_PROPERTY ? asStateNode(attr, data) : attr as any;
-// };
-
-// const asStateNode = <T extends Primitive>(
-//   node: Node,
-//   data?: T,
-// ): JSX.StateNode<NonLiteral<T>> =>
-//   defineProperty(node, JSX_STATE_PROPERTY, accessor(node, data)) as any;
-
-// const asComment = <T extends Primitive>(
-//   data?: T,
-// ): JSX.StateComment<NonLiteral<T>> => {
-//   if (JSX_STATE_PROPERTY) {
-//     const comment = new Comment(data as string);
-//     return asStateNode(comment, data) as any;
-//   } else return new Comment(data as string) as any;
-// };
-
-// /** @internal when JSX_STATE_PROPERTY is set */
-// const accessor = (target: Node, data: Primitive) => ({
-//   ...(JSX_STATE_BIND ? { configurable: true } : {}),
-//   set: (val) => target.nodeValue = data = val,
-//   get: () => data,
-// } as PropertyDescriptor);
-
-// const binds = (...states: JSX.StateNode[]) => {
-//   if (JSX_STATE_PROPERTY && JSX_STATE_BIND) {
-//     let global = JSX_STATE_BIND === "eager"
-//       ? states[0][JSX_STATE_PROPERTY]
-//       : undefined;
-
-//     states.forEach((state, i) => {
-//       let local = JSX_STATE_BIND === "lazy"
-//         ? state[JSX_STATE_PROPERTY]
-//         : undefined;
-//       if (JSX_STATE_BIND === "eager") state[JSX_STATE_PROPERTY] = global;
-
-//       defineProperty(state, JSX_STATE_PROPERTY, {
-//         get: () => JSX_STATE_BIND === "lazy" ? local : global,
-//         set: (val) =>
-//           state.nodeValue = states[i == states.length - 1 ? 0 : i + 1]
-//             .nodeValue = JSX_STATE_BIND === "lazy" ? local = val : global = val,
-//       });
-//     });
-//   } else {
-//     throw Unimplemented(binds, "JSX_STATE_PROPERTY and JSX_STATE_BIND");
-//   }
-// };
-
-const createElement: JSX.Factory = (
-  component: any,
-  props$: Record<Key, any>,
-  ...children: any[]
-) => {
-  props$ ??= {};
-
-  /* Correct order optimized for speed/size?
-  1. create element
-      switch (typeof tag) {
-        case "string": // JSX.InstrinsicAttributes
-          element = document.createElementNS(...)
-          break
-        case "function":
-          if (tag instanceof Component) {     // class Component (JSX.Comp)
-            return new tag(...)
-          } else {                            // function Component (JSX.FC)
-            const element = tag.apply(this, [props, ...children]) // [props].concat(children) when optimized for speed
-            if (element instanceof Promise) { // AsynFunction (JSX.AC)
-              try { return await element } catch { return props.fallback }
-              // usage:
-              /\* <AsyncComponent fallback={<.../>} standby={<.../>} />
-                  const AsyncComponent: JSX.AC = async (props, ...children) => await <.../>
-                  //or (note that `async()=>{}` doesn't have `this` context)
-                  async function AsyncComponent(this: JSX.ThisAC, props, ...children) {
-                    // with default .standby component
-                    this.standby = <.../>
-                    // but I think default .standby are best achieved using `async function*(){}` 🤔
-                    try {
-                      await fn(...)
-                      return <.../>
-                    } catch { // with default .fallback component via try..catch
-                      return <.../>
-                    }
-                  }
-              *\/
-            }
-            else if (Symbol.asyncIterator in element) { // AsyncGeneratorFunction (JSX.ADC)
-              return assign((await element.next()).value, { *[Symbol.asyncIterator](){ yield await element.next() } })
-              // usage:
-              /\* <AsyncComponent iterate={2} /> // calling .next() twice instead of once inside jsx(...) factory
-                  async function *AsyncComponent(this: JSX.ThisADC, props, ...children) { // 🤔
-                    yield <Standby/>
-                    try {
-                      await fn(...)
-                      yield <Result/>
-                    } catch {
-                      yield <Fallback/>
-                    }
-                  }
-
-                  //override <Standby/> and <Fallback/> (maybe prop iterate={2} should be a default 🤔)
-                  <AsyncComponent iterate={2} standby={<.../>} fallback={<.../>} /=
-                  //maybe <AsyncComponent standby /> would be better (which translate to prop iterate={2})
-              *\/
-            }
-            else if (Symbol.iterator in element) { // GeneratorFunction (JSX.DC)
-              return assign(element.next().value, { *[Symbol.iterator]() { yield element.next() } })
-              // each yield will **replace** the current element 🤔
-              // HINT: children[i].onyield(offspring => children[i].replaceWith(offspring))
-              // usage:
-              /\* // note that there is no such thing as `const DynamicComponent = *() => {}`
-                  function *DynamicComponent(this: JSX.DC, props, ...children) {
-                    // you can listen .onyield inside a component (having a default behaviour when yielded)
-                    this.onyield = value => {...}
-                    for (...) { yield <.../> }
-                  }
-                  // or listen .onyield outside the component
-                  <DynamicComponent ref={dynComp} onyield={value => {...}} />
-                  // switching component
-                  dynComp.value.next()
-              *\/
-
-              // WARN: not necessary since <>{...<Generator/>}</> should be enough
-              // or each yield will **insert** element into it's parent 🙅
-              // HINT: children[i].onyield(offspring => element.append(offspring))
-              // or just normally insert all yield<.../> until .next().done 🙅
-              // HINT: element.append(...children[i]())
-            }
-            else return element
-          }
-        case "object": // HTMLElement or SVGElement
-          element = tag
-          break
-        default: // Fragment
-          return new DocumentFragment()
-      }
-
-  2. assign props to attributes
-      // props shouldn't include `ref`
-      if ( notContainState(props) ) Object.assign(element, props)
-      else for (const [name, value] of props) {
-        if (name in element) {         // assign via property
-          element[name] = value
-          ... // process JSX.State
-        } else {                       // assign via attribute
-          element.setAttribute(name, value)
-          ... // process JSX.State
-        }
-      }
-
-  3. append children to element
-      if ( notContainState(children) ) element.append(...children)
-      else {...} // process JSX.State
-
-  4. assign `ref` with element
-      props.ref = element
-  */
-
-  if (JSX_COMPONENT !== "none" && typeof component === "function") {
-    if (
-      !JSX_REF_ATTRIBUTE ||
-      JSX_REF_ATTRIBUTE === "undefined" || JSX_REF_ATTRIBUTE === "null"
-    ) {
-      return createComponent(component, props$, ...children);
-    } else {
-      return props$[JSX_REF_ATTRIBUTE][JSX_REF_PROPERTY ?? JSX_REF_ATTRIBUTE] =
-        createComponent(
-          component,
-          omitRef(props$),
-          ...children,
-        );
+export const proxy = <T extends Element>(trait = Element): JSX.Ref<T> => {
+  let element: Element | Text = new Text();
+  const safeReplace = (newElement: Element) => {
+    if (newElement instanceof trait) {
+      // element.replaceWith(element = newElement); // BUG: see if it cause memory leak
+      element.replaceWith(newElement);
+      element.remove();
+      element = newElement;
     }
-  }
-
-  if (JSX_FRAGMENT === "none") {
-    component = JSX_FACTORY === "html"
-      ? document.createElement(component)
-      : JSX_FACTORY === "svg"
-      ? document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        component,
-      )
-      : document.createElementNS(
-        `http://www.w3.org/${mode ? "2000/svg" : "1999/xhtml"}`,
-        component,
-      );
-  } else {
-    component = typeof component === "string"
-      ? (JSX_FACTORY === "html"
-        ? document.createElement(component)
-        : JSX_FACTORY === "svg"
-        ? document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          component,
-        )
-        : document.createElementNS(
-          `http://www.w3.org/${mode ? "2000/svg" : "1999/xhtml"}`,
-          component,
-        ))
-      : new DocumentFragment();
-  }
-
-  if (JSX_STATE) {
-    const states = JSX_GC ? new Set<JSX.State>() : undefined;
-    for (const node of children) {
-      if (isState(node)) {
-        node._.add(
-          component.appendChild(new Text(node[JSX_STATE_PROPERTY])),
-        );
-        if (JSX_GC) states.add(node);
-      } else component.append(node);
-    }
-    for (
-      const [name, prop] of entries(
-        !JSX_REF_ATTRIBUTE ||
-          JSX_REF_ATTRIBUTE === "undefined" || JSX_REF_ATTRIBUTE === "null"
-          ? props$
-          : omitRef(props$),
-      )
-    ) {
-      if (JSX_PROPS === "property") {
-        component[name] = isState(prop) ? prop[JSX_STATE_PROPERTY] : prop;
-      } else {
-        if (name.startsWith("on")) component[name] = prop;
-        else {
-          component.setAttribute(
-            name,
-            isState(prop) ? prop[JSX_STATE_PROPERTY] : prop,
+  };
+  const { proxy, revoke } = Proxy.revocable(trait, {
+    apply(target, self, [ops]) {
+      switch (ops) {
+        case Attr:
+          return from((element as Element).attributes);
+        case Element:
+          return from((element as Element).children);
+        case Node:
+          return from<Node>((element as Element).attributes).concat(
+            ...element.childNodes,
           );
+        case Text:
+          return from(element.childNodes).filter((node) =>
+            node instanceof Text
+          );
+        case Comment:
+          return from(element.childNodes).filter((node) =>
+            node instanceof Comment
+          );
+        case null:
+          element.remove();
+          return revoke();
+        default:
+          safeReplace(ops);
+          return element;
+      }
+    },
+    construct(target, [newElement]) {
+      if (newElement !== null) {
+        safeReplace(newElement);
+        return proxy;
+      } else {
+        revoke();
+        return element;
+      }
+    },
+    has: (target, key) => (element as Element).hasAttribute(key.toString()),
+    deleteProperty(target, key) {
+      const hasAttr = this.has(target, key);
+      if (hasAttr) (element as Element).removeAttribute(key.toString());
+      return hasAttr;
+    },
+    // TODO: handle layout trashing similiar to fastdom (or better/simpler/smaller)
+    set(target, key, value) {
+      if (key in element) {
+        element[key] = value;
+        return true;
+      } else return false;
+    },
+    get: (target, key) => element[key],
+    // https://stackoverflow.com/a/55124080/5221998
+    ownKeys: () => keys(element),
+    getOwnPropertyDescriptor: (target, key) => ({
+      value: element[key],
+      enumerable: true,
+    }),
+  });
+  return proxy;
+};
+
+const jsx = (tag, props = {} as Record<Key, any>, ...children) => {
+  switch (typeof tag) { // apply JSX.State
+    case "string":
+      const namespace = `http://www.w3.org/${
+        mode == SVG_MODE ? "2000/svg" : "1999/xhtml"
+      }`;
+      const element = document.createElementNS(namespace, tag);
+      const { [JSX_REF_ATTRIBUTE]: proxy$, ...props$ } = props;
+      proxy$(element);
+      // const { [JSX_REF_ATTRIBUTE]: ref, ...props$ } = props;
+      // ref[JSX_REF_PROPERTY] = element;
+      for (let [name, value] of entries(props$)) {
+        if (name.startsWith("on")) element[name] = value;
+        else {
+          const attr = assign(document.createAttribute(name), { value });
+          if (isState(value)) {
+            value[$nodes].add(assign(attr, { nodeValue: value() }));
+          }
+          element.setAttributeNode(attr);
         }
       }
-      if (isState(prop)) {
-        prop._.add(component.attributes[name === "className" ? "class" : name]);
-        if (JSX_GC) states.add(prop);
+      for (const node of children) {
+        if (isState(node)) {
+          node[$nodes].add(
+            element.appendChild(new Text(node() as string)), // Text has auto .toString()
+          );
+        } else element.append(node);
       }
-    }
-    if (
-      !JSX_REF_ATTRIBUTE ||
-      JSX_REF_ATTRIBUTE === "undefined" || JSX_REF_ATTRIBUTE === "null"
-    ) {
-      if (JSX_GC) {
-        return defineProperties(component, {
-          gc: {
-            get: () =>
-              () => {
-                states.forEach(({ _: it }) => it.clear());
-                states.clear();
-                component.remove();
-              },
+      return element;
+    case "function":
+      if (tag.prototype instanceof Element) return new tag(props, ...children);
+
+      const result = tag.apply(props, [props].concat(children)); // handle instantiating both function and class component
+      if (result instanceof Promise) {
+        let element: Text | Element = props.standby ?? new Text();
+        const replace = (node: Node | undefined) => {
+          if (node) element.replaceWith(node);
+          element.remove();
+        };
+        result.then(replace).catch(() => replace(props.fallback));
+        return element;
+      } else if (Symbol.asyncIterator in result) {
+        let element: Text | Element = props.standby ?? new Text();
+        const replace = (
+          { value, done }: IteratorReturnResult<Node | undefined>,
+        ) => {
+          if (value) element.replaceWith(value);
+          if (done) element.remove();
+        };
+        result.next().then(replace).catch(() => replace(props.fallback));
+        return assign(element, {
+          async *[Symbol.asyncIterator]() {
+            try {
+              for await (const value of result) {
+                element.replaceWith(element = value);
+                yield element;
+              }
+            } catch (error) {
+              element.replaceWith(props.fallback);
+              throw error;
+            } finally {
+              element.remove();
+              return element;
+            }
           },
         });
-      } else return component;
-    } else {
-      if (JSX_GC) {
-        return defineProperties(
-          props$[JSX_REF_ATTRIBUTE]
-            ? props$[JSX_REF_ATTRIBUTE][JSX_REF_PROPERTY ?? JSX_REF_ATTRIBUTE] =
-              component
-            : component,
-          {
-            gc: {
-              get: () =>
-                () => {
-                  states.forEach(({ _: it }) => it.clear());
-                  states.clear();
-                  component.remove();
-                  if (props$[JSX_REF_ATTRIBUTE]) {
-                    props$[JSX_REF_ATTRIBUTE][
-                      JSX_REF_PROPERTY ?? JSX_REF_ATTRIBUTE
-                    ] = null;
-                  }
-                },
-            },
+      } else if (Symbol.iterator in result) {
+        let element: Element = result.next().value;
+        return assign(element, {
+          *[Symbol.iterator]() {
+            let next: IteratorReturnResult<Element>;
+            while (next = result.next()) {
+              element.replaceWith(element = next.value);
+            }
+            element.remove();
           },
-        );
-      } else {
-        return props$[JSX_REF_ATTRIBUTE]
-          ? props$[JSX_REF_ATTRIBUTE][JSX_REF_PROPERTY ?? JSX_REF_ATTRIBUTE] =
-            component
-          : component;
-      }
-    }
-  } else {
-    const { assign } = Object;
-    component.append(...children);
-    if (JSX_PROPS === "attribute") {
-      for (const name in props$) {
-        if (name.startsWith("on")) component[name] = props$[name];
-        else component.setAttribute(name, props$[name]);
-      }
-    }
-    if (
-      !JSX_REF_ATTRIBUTE ||
-      JSX_REF_ATTRIBUTE === "undefined" || JSX_REF_ATTRIBUTE === "null"
-    ) {
-      return JSX_PROPS === "property" ? assign(component, props$) : component;
-    } else {
-      if (JSX_GC) {
-        return assign(
-          props$[JSX_REF_ATTRIBUTE]
-            ? props$[JSX_REF_ATTRIBUTE][JSX_REF_PROPERTY ?? JSX_REF_ATTRIBUTE] =
-              component
-            : component,
-          {
-            get gc() {
-              return () => {
-                component.remove();
-                if (props$[JSX_REF_ATTRIBUTE]) {
-                  props$[JSX_REF_ATTRIBUTE][
-                    JSX_REF_PROPERTY ?? JSX_REF_ATTRIBUTE
-                  ] = null;
-                }
-              };
-            },
-          },
-          JSX_PROPS === "property" ? omitRef(props$) : undefined,
-        );
-      } else {
-        return JSX_PROPS === "property"
-          ? assign(
-            props$[JSX_REF_ATTRIBUTE]
-              ? props$[JSX_REF_ATTRIBUTE][
-                JSX_REF_PROPERTY ?? JSX_REF_ATTRIBUTE
-              ] = component
-              : component,
-            omitRef(props$),
-          )
-          : props$[JSX_REF_ATTRIBUTE]
-          ? props$[JSX_REF_ATTRIBUTE][JSX_REF_PROPERTY ?? JSX_REF_ATTRIBUTE] =
-            component
-          : component;
-      }
-    }
+        });
+      } else return result;
+    default:
+      return new DocumentFragment();
   }
 };
 
@@ -463,54 +219,8 @@ export const SVG_MODE = 1;
 export const jsxMode = (mode$: typeof mode) => mode = mode$;
 if (!JSX_FACTORY && JSX_MODE === "svg") mode = 1;
 
-/** @internal create class or function component */
-const createComponent: JSX.ComponentFactory = (
-  component: any,
-  props: any,
-  ...children: any[]
-) =>
-  JSX_COMPONENT === "function"
-    ? component(props, ...children)
-    : JSX_COMPONENT === "class"
-    ? new component(props, ...children)
-    : (component.prototype?.constructor
-      ? new component(props, ...children)
-      : component(props, ...children));
-
-/** @internal remove `.ref` property */
-const omitRef = ({ [JSX_REF_ATTRIBUTE]: ref, ...props }) => props;
-
-// const sepAttr = (props): [Record<Key, Attr>, Record<Key, any>] => [{}, {}];
-
 const Unimplemented = (fn: Function, feat: string, cond: string = "is set") =>
   SyntaxError(`${fn.name}(...) only available if ${feat} ${cond}`);
-
-// /** @internal since `result = new Proxy(instanceof Node)` can't be rendered */
-// const proxifyNode = <T extends Node>(node: T, handler: ProxyHandler<T>): T =>
-//   Object.setPrototypeOf(node, new Proxy(node, handler));
-
-// /** @internal useful for console.log all operation */
-// const handleReflect = (handle: (...$: any) => void) => {
-//   const newReflect = Reflect;
-//   for (const fn in Reflect) {
-//     newReflect[fn] = (...args: any) => {
-//       handle(...args);
-//       return Reflect[fn](...args);
-//     };
-//   }
-//   return newReflect;
-// };
-
-/** Change the target of all `Reflect` function
- * @internal to avoid infinite recursion in `proxifyNode`
- * @todo I think this helper can be shorten more 🤔 */
-// const targetReflect = <T>(target: T) => {
-//   const newReflect = Reflect;
-//   for (const fn in Reflect) {
-//     newReflect[fn] = (_: any, ...args: any) => Reflect[fn](target, ...args);
-//   }
-//   return newReflect;
-// };
 
 // type StateValue = Exclude<Primitive, boolean>;
 declare global {
@@ -531,13 +241,16 @@ declare global {
       JSX_REF_ATTRIBUTE?: string | "undefined";
       JSX_REF_PROPERTY?: string;
       JSX_PROPS: "property" | "attribute";
-      JSX_GC?: true;
+      JSX_GC?: "true" | "1" | "yes" | "enable";
       // JSX_MULTI_BIND?: true;
       // JSX_REACTIVITY: "proxy" | "mutationobserver" | "accessor";
       // JSX_REACTIVITY_AUTOREMOVE_ATTR?: true; // only JSX_STATE "vanilla" has different implementation
     }
   }
   namespace JSX {
+    interface Proxy<T> {
+      (query?: any): T;
+    }
     // //@ts-expect-error
     // interface StateNode<T = unknown> extends Node, State<T> {
     //   // TODO: support both literal Object {...} and Array [...]
@@ -555,9 +268,14 @@ declare global {
     // //@ts-expect-error
     // interface StateComment<T = unknown> extends StateNode<T>, Comment {}
 
-    interface Ref<T> {}
+    interface Ref<T> {
+      <R extends Element>(
+        newElement?: R | null,
+      ): typeof newElement extends R ? R : T;
+    }
     interface State<T = unknown> {
-      readonly _: Set<Node>;
+      (value?: T | ((val: T) => Primitive)): T;
+      readonly [$nodes]: Set<Node>;
     }
 
     interface Factory extends HTMLFactory, SVGFactory {}
@@ -637,16 +355,21 @@ declare global {
     type IntrinsicProps<T> = {
       [K in keyof T]:
         & {
-          [P in keyof T[K]]?: T[K][P] | JSX.State<Primitive>;
+          [P in keyof T[K]]?: T[K][P] extends Primitive | Function
+            ? T[K][P] | JSX.State<Primitive>
+            : unknown;
         }
         & IntrinsicAttributes<T[K]>;
     };
 
     // https://www.typescriptlang.org/docs/handbook/jsx.html#type-checking //
     type Element = HTMLElement & SVGElement & DocumentFragment;
+    //@ts-ignore
     type IntrinsicElements = IntrinsicProps<
       HTMLElementTagNameMap & SVGElementTagNameMap
     >;
-    interface IntrinsicAttributes<T = Element> {}
+    interface IntrinsicAttributes<T = Element> {
+      class?: string;
+    }
   }
 }
