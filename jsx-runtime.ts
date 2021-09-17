@@ -72,12 +72,20 @@ export const as = <T extends Element>(trait = Element): JSX.Ref<T> => {
 const jsx = (tag, props = {} as Record<Key, any>, ...children) => {
   switch (typeof tag) { // apply JSX.State
     case "string":
+      const xmltag = tag.split(":"),
+        [prefix, tag$ = tag] = xmltag,
+        { [JSX_REF_ATTRIBUTE]: deassign, ...props$ } = props;
+
+      // BUG: automatic switching mode might not work when multiple jsxFactory called asynchronously
+      // the obvious way to solve this is to always return `mode => Element` instead of `Element` (i.e form.append( <input />(HTML) ))
+      // and conviniently return `Element` directly when using namespace prefix (i.e svg.append(<svg:rect />))
+      mode = prefix === "html" ? HTML : xmltag.includes("svg") ? SVG : mode;
       const namespace = `http://www.w3.org/${
-        mode == SVG_MODE ? "2000/svg" : "1999/xhtml"
+        mode == SVG ? "2000/svg" : "1999/xhtml"
       }`;
-      const element = document.createElementNS(namespace, tag);
-      const { [JSX_REF_ATTRIBUTE]: deassign, ...props$ } = props;
+      const element = document.createElementNS(namespace, tag$);
       deassign[$cache] = element;
+
       for (let [name, value] of entries(props$)) {
         if (name.startsWith("on")) element[name] = value;
         else {
@@ -88,6 +96,7 @@ const jsx = (tag, props = {} as Record<Key, any>, ...children) => {
           element.setAttributeNode(attr);
         }
       }
+
       for (const node of children) {
         if (isState(node)) {
           node[$cache].add(
@@ -95,6 +104,7 @@ const jsx = (tag, props = {} as Record<Key, any>, ...children) => {
           );
         } else element.append(node);
       }
+
       return element;
     case "function":
       if (tag.prototype instanceof Element) return new tag(props, ...children);
@@ -151,8 +161,9 @@ const jsx = (tag, props = {} as Record<Key, any>, ...children) => {
 };
 
 let mode: Mode;
-export const HTML_MODE = 0;
-export const SVG_MODE = 1;
+export const HTML = 0;
+export const SVG = 1;
+// BUG: jsxMode manual switch might not work when called multiple time asynchronously
 export const jsxMode = (mode$: typeof mode) => mode = mode$;
 if (!JSX_FACTORY && JSX_MODE === "svg") mode = 1;
 
