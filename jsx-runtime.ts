@@ -34,22 +34,17 @@ const state = <T extends Primitive>(data?: T): JSX.State<NonLiteral<T>> => {
       for (const node of nodes) node.nodeValue = value as string; // Node.prototype.nodeValue has auto .toString()
       data = value;
     } else if (value === null) {
-      //@ts-expect-error revoke observable
-      if (new.target) observable = undefined;
-      else {
-        for (const node of nodes) {
-          const { parentElement } = node;
-          if (node instanceof Attr) {
-            parentElement.removeAttributeNode(node);
-          } else parentElement.removeChild(node);
-        }
-        return observable;
+      for (const node of nodes) {
+        const { parentElement } = node;
+        if (node instanceof Attr) {
+          parentElement.removeAttributeNode(node);
+        } else parentElement.removeChild(node);
       }
     }
     return data;
   }
 
-  const properties = {
+  const properties: PropertyDescriptorMap = {
     // Vue ref but handle computed state
     [JSX_STATE_PROPERTY]: { get: observable, set: observable },
     [$nodes]: { get: () => nodes }, // cache assigned (Attr | Text) for observable()
@@ -57,8 +52,6 @@ const state = <T extends Primitive>(data?: T): JSX.State<NonLiteral<T>> => {
   return defineProperties(observable, properties) as any;
 };
 
-//@ts-expect-error
-export const revoke = <T>(ps: JSX.State<T> | JSX.Proxy<T>) => new ps(null); // TODO: make state() return (i.e observable) constructable
 
 export const proxy = <T extends Element>(trait = Element): JSX.Ref<T> => {
   let element: Element | Text = new Text();
