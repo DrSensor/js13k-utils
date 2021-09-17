@@ -5,21 +5,13 @@ export { Fragment, jsx, state };
 
 const JSX_FACTORY = process.env.JSX_FACTORY;
 const JSX_MODE = process.env.JSX_MODE;
-const JSX_FRAGMENT = process.env.JSX_FRAGMENT;
-const JSX_COMPONENT = process.env.JSX_COMPONENT;
 const JSX_STATE_PROPERTY = process.env.JSX_STATE_PROPERTY ?? "value";
 const JSX_REF_ATTRIBUTE = process.env.JSX_REF_ATTRIBUTE;
-const JSX_REF_PROPERTY = process.env.JSX_REF_PROPERTY ??
-  JSX_REF_ATTRIBUTE ?? "ref";
-const JSX_STATE = process.env.JSX_STATE;
-const JSX_PROPS = process.env.JSX_PROPS;
-const JSX_GC = process.env.JSX_GC;
 
-import type { AnyArrow, Key, Never, NonLiteral, Primitive } from ".";
-const { entries, defineProperties, seal, assign, keys } = Object;
-const { from } = Array;
+import type { Key, Never, NonLiteral, Primitive } from ".";
+const { entries, defineProperties, assign } = Object;
 
-const Fragment: Record<Key, never> = {};
+const Fragment = null;
 const $cache = Symbol();
 
 const isState = <T>(value: any): value is JSX.State<T> =>
@@ -29,7 +21,7 @@ const state = <T extends Primitive>(data?: T): JSX.State<NonLiteral<T>> => {
   const nodes = new Set<Node>();
 
   // S.data where fn.name is inspired from https://sinuous.dev
-  function observable(value?: T) {
+  function observable(value?: T | null) {
     if (value) {
       for (const node of nodes) node.nodeValue = value as string; // Node.prototype.nodeValue has auto .toString()
       data = value;
@@ -182,42 +174,11 @@ declare global {
     interface ProcessEnv {
       JSX_FACTORY?: "html" | "svg";
       JSX_MODE: "html" | "svg";
-      JSX_FRAGMENT?: "{}" | "none";
-      JSX_COMPONENT?: "class" | "function" | "none";
       JSX_STATE_PROPERTY?: string;
-      // JSX_STATE_BIND: "eager" | "lazy";
-      JSX_STATE: "react" | "vue" | "S" | "setget";
-      // JSX_STATE: "tuple" | "ref" | "node";
       JSX_REF_ATTRIBUTE?: string | "undefined";
-      JSX_REF_PROPERTY?: string;
-      JSX_PROPS: "property" | "attribute";
-      JSX_GC?: "true" | "1" | "yes" | "enable";
-      // JSX_MULTI_BIND?: true;
-      // JSX_REACTIVITY: "proxy" | "mutationobserver" | "accessor";
-      // JSX_REACTIVITY_AUTOREMOVE_ATTR?: true; // only JSX_STATE "vanilla" has different implementation
     }
   }
   namespace JSX {
-    interface Proxy<T> {
-      (query?: any): T;
-    }
-    // //@ts-expect-error
-    // interface StateNode<T = unknown> extends Node, State<T> {
-    //   // TODO: support both literal Object {...} and Array [...]
-    //   // 1. empty Array or tuple like     `[]` -> `""`                literal empty string
-    //   // 2. single tuple like            `[1]` -> `"1"`               literal string literal
-    //   // 3. multi tuple like          `[1string | Function|DocumentFragment, 2]` -> `"1,2"`             literal string literal delimited with comma
-    //   // 4. any Object like            `{...}` -> `"[object Object]"` literal const string
-    //   // TIPS: see my experiment on javelin-ecs
-    //   nodeValue: T extends StateValue ? T : string;
-    // }
-    // //@ts-expect-error
-    // interface StateText<T = unknown> extends StateNode<T>, Text {}
-    // //@ts-expect-error
-    // interface StateAttr<T = unknown> extends StateNode<T>, Attr {}
-    // //@ts-expect-error
-    // interface StateComment<T = unknown> extends StateNode<T>, Comment {}
-
     interface Ref<T> {
       <R extends Element>(
         newElement?: R | null,
