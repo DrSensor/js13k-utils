@@ -74,7 +74,7 @@ const jsx = (tag, props = {} as Record<Key, any>, ...children) => {
     case "string":
       const xmltag = tag.split(":"),
         [prefix, tag$ = tag] = xmltag,
-        { [JSX_REF_ATTRIBUTE]: deassign, ...props$ } = props;
+        { [JSX_REF_ATTRIBUTE]: deassign = {}, ...props$ } = props;
 
       // BUG: automatic switching mode might not work when multiple jsxFactory called asynchronously
       // the obvious way to solve this is to always return `mode => Element` instead of `Element` (i.e form.append( <input />(HTML) ))
