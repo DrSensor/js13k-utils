@@ -62,21 +62,20 @@ export const as = <T extends Element>(trait = Element): JSX.Ref<T> => {
 };
 
 const jsx = (tag, props = {} as Record<Key, any>, ...children) => {
+  const { [JSX_REF_ATTRIBUTE]: deassign = {}, ...props$ } = props;
   switch (typeof tag) { // apply JSX.State
     case "string":
-      const xmltag = tag.split(":"),
-        [prefix, tag$ = tag] = xmltag,
-        { [JSX_REF_ATTRIBUTE]: deassign = {}, ...props$ } = props;
+      const xmltag = tag.split(":"), [prefix, tag$ = tag] = xmltag;
 
       // BUG: automatic switching mode might not work when multiple jsxFactory called asynchronously
       // the obvious way to solve this is to always return `mode => Element` instead of `Element` (i.e form.append( <input />(HTML) ))
       // and conviniently return `Element` directly when using namespace prefix (i.e svg.append(<svg:rect />))
       mode = prefix === "html" ? HTML : xmltag.includes("svg") ? SVG : mode;
       const namespace = `http://www.w3.org/${
-        mode == SVG ? "2000/svg" : "1999/xhtml"
-      }`;
-      const element = document.createElementNS(namespace, tag$);
-      deassign[$cache] = element;
+          mode == SVG ? "2000/svg" : "1999/xhtml"
+        }`,
+        element = deassign[$cache] = document
+          .createElementNS(namespace, tag$);
 
       for (let [name, value] of entries(props$)) {
         if (name.startsWith("on")) element[name] = value;
@@ -98,24 +97,24 @@ const jsx = (tag, props = {} as Record<Key, any>, ...children) => {
       }
 
       return element;
-    case "function":
-      if (tag.prototype instanceof Element) return new tag(props, ...children);
+    case "function": // BUG: Fragment will cause error if used in both *generator and async function
+      if (tag.prototype instanceof Element) {
+        return deassign[$cache] = new tag(props$, ...children);
+      }
 
-      const result = tag.apply(props, [props].concat(children)); // handle instantiating both function and class component
+      const result = tag.apply(props$, [props$].concat(children)); // handle instantiating both function and class component
       if (result instanceof Promise) {
         let element: Text | Element = props.standby ?? new Text();
-        const replace = (node: Node | undefined) => {
-          if (node) element.replaceWith(node);
-          element.remove();
-        };
+        const replace = (node: Element) =>
+          element.replaceWith(element = deassign[$cache] = node);
         result.then(replace).catch(() => replace(props.fallback));
         return element;
       } else if (Symbol.asyncIterator in result) {
         let element: Text | Element = props.standby ?? new Text();
         const replace = (
-          { value, done }: IteratorReturnResult<Node | undefined>,
+          { value, done }: IteratorReturnResult<Element | undefined>,
         ) => {
-          if (value) element.replaceWith(value);
+          if (value) element.replaceWith(element = deassign[$cache] = value);
           if (done) element.remove();
         };
         result.next().then(replace).catch(() => replace(props.fallback));
@@ -123,7 +122,7 @@ const jsx = (tag, props = {} as Record<Key, any>, ...children) => {
           async *[Symbol.asyncIterator]() {
             try {
               for await (const value of result) {
-                element.replaceWith(element = value);
+                element.replaceWith(element = deassign[$cache] = value);
                 yield element;
               }
             } catch (error) {
@@ -136,17 +135,18 @@ const jsx = (tag, props = {} as Record<Key, any>, ...children) => {
           },
         });
       } else if (Symbol.iterator in result) {
-        let element: Element = result.next().value;
+        let element: Element = deassign[$cache] = result.next().value;
         return assign(element, {
           *[Symbol.iterator]() {
             let next: IteratorReturnResult<Element>;
             while (next = result.next()) {
-              element.replaceWith(element = next.value);
+              element.replaceWith(element = deassign[$cache] = next.value);
+              yield element;
             }
             element.remove();
           },
         });
-      } else return result;
+      } else return deassign[$cache] = result;
     default:
       const fragment = new DocumentFragment();
       fragment.append(...children);
