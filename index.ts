@@ -3,6 +3,8 @@
 const { PI, min, max, round, sign, abs } = Math;
 const { assign } = Object;
 const { iterator } = Symbol;
+export const isFunction = (value: unknown): value is Function =>
+  typeof value === "function";
 
 export const randomSet = (...args: ([number, number] | number)[]) => {
   const set = args[round(random(args.length - 1))];
@@ -28,6 +30,33 @@ export const diff = ($1: number, $2: number) => {
 export const radian = (degree: number) => degree * (PI / 180);
 
 export const degree = (radian: number) => radian * (180 / PI);
+
+export const trim = <T>(
+  arrayLike: T[],
+  condition: (value: T) => boolean = (v) => !v,
+) => {
+  const result = Array.from(arrayLike);
+  if (condition(result[0])) result.shift();
+  if (condition(result[result.length - 1])) result.pop();
+  return result;
+};
+
+export const partition = <T, R>(
+  array: T[],
+  separator: (value: T) => boolean, //@ts-ignore
+  map: (value: T) => R = (v) => v,
+): R[][] => {
+  let result: R[][] = [], index = 0;
+  for (const value of trim(array, separator)) {
+    if (separator(value)) {
+      ++index;
+      continue;
+    }
+    result[index]?.push(map(value));
+    result[index] ??= [map(value)];
+  }
+  return result;
+};
 
 /** Something like OOP getter/setter but for function arguments
  *
