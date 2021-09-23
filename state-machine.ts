@@ -65,15 +65,14 @@ export default (tokens: string[], ...idents: Ident[]) => {
     } else throw SyntaxError(`found "${trigger}" instead of "@"`);
   }
 
-  const result = new Proxy(class {}, {
-    construct(target, [startState]) {
+  return class {
+    constructor(startState: State) {
       currentState = table.get(startState);
-      return result;
-    },
-    apply: () => currentState,
-    get: (target, property) => currentState[property],
-  });
-  return result;
+      return new Proxy(() => currentState, {
+        get: (target, property) => currentState[property],
+      });
+    }
+  };
 };
 
 export const ttable = <T>(machine): T[][] => {
