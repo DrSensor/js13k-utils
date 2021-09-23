@@ -36,24 +36,25 @@ export const trim = <T>(
   condition: (value: T) => boolean = (v) => !v,
 ) => {
   const result = Array.from(arrayLike);
-  if (condition(result[0])) result.shift();
-  if (condition(result[result.length - 1])) result.pop();
+  while (condition(result[0])) result.shift();
+  while (condition(result[result.length - 1])) result.pop();
   return result;
 };
 
-export const partition = <T, R>(
+export const partition = <T, R = T>(
   array: T[],
-  separator: (value: T) => boolean, //@ts-ignore
+  separator: (value: T | R) => boolean, //@ts-ignore
   map: (value: T) => R = (v) => v,
 ): R[][] => {
   let result: R[][] = [], index = 0;
-  for (const value of trim(array, separator)) {
+  for (const item of trim<T>(array, (it) => separator(map(it)))) {
+    const value = map(item);
     if (separator(value)) {
       ++index;
       continue;
     }
-    result[index]?.push(map(value));
-    result[index] ??= [map(value)];
+    result[index]?.push(value);
+    result[index] ??= [value];
   }
   return result;
 };

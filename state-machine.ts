@@ -13,7 +13,7 @@ export default (tokens: string[], ...idents: Ident[]) => {
 
   const symbols = partition(
       tokens,
-      (token) => token === "\n",
+      (token) => ["\n", ""].includes(token),
       (token) => token.trim(),
     ),
     table = new Map<State, Transition>(),
