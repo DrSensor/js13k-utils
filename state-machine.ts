@@ -1,16 +1,18 @@
 import type { AnyFunc, Key } from ".";
 import { isFunction, partition } from ".";
 const { isArray } = Array;
+const { assign } = Object;
 
 type Ident = AnyFunc | string | number;
 const getName = (ident: Ident) => isFunction(ident) ? ident.name : ident;
 
-export default (tokens: string[], ...idents: Ident[]) => {
-  type Event = Key;
-  type Action = Ident;
-  type State = Ident;
-  type Transition = Record<Event, Action>;
+type Trigger = Key;
+type Action = Ident;
+type State = Ident;
+type Transition = Record<Trigger, Action>;
+type Ref = { next?: State; event?: Ident };
 
+export default (tokens: string[], ...idents: Ident[]) => {
   const symbols = partition(
       tokens,
       (token) => ["\n", ""].includes(token),
@@ -40,11 +42,12 @@ export default (tokens: string[], ...idents: Ident[]) => {
       const event = idents[++index];
       for (const current of [current1, current2]) {
         const handler = table.get(current), nextName = getName(next);
+        let nextFn = {} as AnyFunc & Ref;
         if (handler) {
           handler[""] = undefined; // rename property [""] to [event]
-          delete Object.assign(handler, {
+          delete assign(handler, {
             [getName(event)]: [event, next].some(isFunction)
-              ? {
+              ? (nextFn = {
                 [nextName]: (...args: unknown[]) => {
                   currentState = table.get(next);
                   args = isFunction(event)
@@ -57,10 +60,11 @@ export default (tokens: string[], ...idents: Ident[]) => {
                     );
                   } else return args;
                 },
-              }[nextName]
+              }[nextName])
               : next,
           })[""];
         }
+        assign(nextFn, { event, next }); // used for serialization
       }
     } else throw SyntaxError(`found "${trigger}" instead of "@"`);
   }
@@ -72,6 +76,7 @@ export default (tokens: string[], ...idents: Ident[]) => {
         get: (target, property) => currentState[property],
       });
     }
+    static table = table; // used for serialization
   };
 };
 
