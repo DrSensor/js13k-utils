@@ -3,8 +3,13 @@
 const { PI, min, max, round, sign, abs } = Math;
 const { assign } = Object;
 const { iterator } = Symbol;
+const { isArray } = Array;
+
 export const isFunction = (value: unknown): value is Function =>
   typeof value === "function";
+
+export const isNullish = (value: unknown): value is Nullish =>
+  [undefined, null].includes(value);
 
 export const randomSet = (...args: ([number, number] | number)[]) => {
   const set = args[round(random(args.length - 1))];
@@ -58,6 +63,10 @@ export const partition = <T, R = T>(
   }
   return result;
 };
+
+/** @see https://github.com/NixOS/nixpkgs/blob/master/lib/lists.nix#L277 */
+export const toArray = <T>(value: T[] | T): T[] | Nullish =>
+  isArray(value) ? value : isNullish(value) ? value : [value];
 
 /** Something like OOP getter/setter but for function arguments
  *
@@ -138,5 +147,7 @@ export type Primitive = Exclude<Defined, symbol>;
 
 /** @see https://github.com/Microsoft/TypeScript/issues/7648#issuecomment-541625573 */
 export type Defined = Key | boolean | bigint;
+
+export type Nullish = undefined | null;
 
 export type Key = string | number | symbol;

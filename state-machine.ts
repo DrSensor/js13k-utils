@@ -1,6 +1,5 @@
 import type { AnyFunc, Key } from ".";
-import { isFunction, partition } from ".";
-const { isArray } = Array;
+import { isFunction, partition, toArray } from ".";
 const { assign } = Object;
 
 type Ident = AnyFunc | string | number;
@@ -49,16 +48,15 @@ export default (tokens: string[], ...idents: Ident[]) => {
             [getName(event)]: [event, next].some(isFunction)
               ? (nextFn = {
                 [nextName]: (...args: unknown[]) => {
-                  currentState = table.get(next);
-                  args = isFunction(event)
-                    ? event.apply(context, args)
-                    : undefined;
-                  if (isFunction(next)) {
-                    return next.apply(
+                  currentState = table.get(next); // transition
+                  let result: unknown; // transition:act => (next:act |> event:act)
+                  if (isFunction(next)) result = next.apply(context, args);
+                  return isFunction(event)
+                    ? (event.apply(
                       context,
-                      isArray(args) || args === undefined ? args : [args],
-                    );
-                  } else return args;
+                      toArray(result) ?? args,
+                    ) ?? result)
+                    : result;
                 },
               }[nextName])
               : next,
