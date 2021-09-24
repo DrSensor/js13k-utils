@@ -11,6 +11,9 @@ export const isFunction = (value: unknown): value is Function =>
 export const isNullish = (value: unknown): value is Nullish =>
   [undefined, null].includes(value);
 
+export const isConstructable = (value: unknown): value is AnyCtor =>
+  typeof value === "function" ? !!value.constructor : false;
+
 export const randomSet = (...args: ([number, number] | number)[]) => {
   const set = args[round(random(args.length - 1))];
   return random(...(set[0] ? set : [set]) as [number]);
@@ -124,6 +127,8 @@ type Accessor<T extends [...any[]]> =
   & { length: T["length"] };
 
 export type Values<T> = T[keyof T];
+
+export type AnyCtor = new (...args: any[]) => any;
 
 export type AnyArrow = (...args: any[]) => any;
 

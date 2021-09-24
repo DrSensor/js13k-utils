@@ -1,5 +1,6 @@
+import type { AnyFunc } from ".";
 import { isConstructable, isFunction, partition, toArray } from ".";
-const { assign, defineProperty } = Object;
+const { assign, defineProperty, values } = Object;
 
 type Ident = AnyFunc | string | number;
 const getName = (ident: Ident) => isFunction(ident) ? ident.name : ident;
@@ -87,6 +88,60 @@ export default (tokens: string[], ...idents: Ident[]) => {
     static table = table; // used for serialization
   };
 };
+
+/**
+ * @example
+ * const State = logic`${A} -> ${B} @ ${C}`
+ *     , table = new Table(State)
+ *
+ * assert(table.state.get(A) === 0)
+ * assert(table.event[C.name] === 0)
+ * assert(table.inverse.event[0] === C)
+ * assert(table.inverse.state[1] === B)
+ */
+export class Table {
+  state = new Map<Ident, number>();
+  event = new Map<Ident, number>();
+  constructor({ table }: MachineConstructor) {
+    let stateIndex = 0, eventIndex = 0;
+    const { state, event, inverse } = this;
+    for (const [s, transition] of table) {
+      state.set(inverse.state[stateIndex] = s, stateIndex++);
+      for (const { event: e } of values(transition)) {
+        event.set(inverse.event[eventIndex] = e, eventIndex++);
+      }
+    }
+  }
+  inverse = {
+    state: {} as Record<number, Ident>,
+    event: {} as Record<number, Ident>,
+  };
+}
+
+/**
+ * @example
+ * const State = logic`${A} -> ${B} @ ${C}`
+ *     , table = new Table(State)
+ *     , transition = new LUT(State, table)
+ * 
+ * let currentState = table.state.get(A)
+ *   , event = table.state.get(C)
+ * 
+ * let nextState: number = transition[currentState][event]
+ * assert(nextState === table.state.get(B))
+ */
+export class LUT {
+  constructor(machine: MachineConstructor, table = new Table(machine)) {
+    const result: number[][] = [];
+    for (const [state, transition] of machine.table) {
+      const current = result[table.state.get(state)] = [];
+      for (const { event, next } of values(transition)) {
+        current[table.state.get(event)] = table.state.get(next);
+      }
+    }
+    return result;
+  }
+}
 
 export const ttable = <T>(machine): T[][] => {
   throw "Unimplemented";
