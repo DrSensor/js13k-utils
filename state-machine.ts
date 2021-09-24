@@ -19,7 +19,7 @@ export default (tokens: string[], ...idents: Ident[]) => {
     table = new Map<State, Transition>(),
     context = {};
 
-  let currentTransition: Transition, currentState: State, index = 0;
+  let currentTab: Transition, currentState: State, index = 0;
   for (const [transition, trigger] of symbols) {
     let current1: Ident, current2: Ident, next: Ident;
     const from = transition.startsWith("<-"), into = transition.endsWith("->");
@@ -47,7 +47,7 @@ export default (tokens: string[], ...idents: Ident[]) => {
             [getName(event)]: [event, next].some(isFunction)
               ? (nextFn = {
                 [nextName]: (...args: unknown[]) => {
-                  currentTransition = table.get(currentState = next); // transition
+                  currentTab = table.get(currentState = next); // transition
                   let result: unknown; // transition:act => (next:act |> event:act)
                   if (isFunction(next)) result = next.apply(context, args);
                   return isFunction(event)
@@ -68,7 +68,7 @@ export default (tokens: string[], ...idents: Ident[]) => {
 
   return class Machine {
     constructor(startState: State) {
-      currentTransition = table.get(startState);
+      currentTab = table.get(startState);
       return new Proxy(
         defineProperty(
           function (...args: unknown[]) {
@@ -81,7 +81,7 @@ export default (tokens: string[], ...idents: Ident[]) => {
           Symbol.species,
           { get: () => isConstructable(currentState) ? currentState : Machine },
         ),
-        { get: (target, property) => currentTransition[property] },
+        { get: (target, property) => currentTab[property] ?? currentTab[""] },
       );
     }
     static table = table; // used for serialization
