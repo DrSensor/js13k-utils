@@ -1,6 +1,5 @@
-import type { AnyFunc, Key } from ".";
-import { isFunction, partition, toArray } from ".";
-const { assign } = Object;
+import { isConstructable, isFunction, partition, toArray } from ".";
+const { assign, defineProperty } = Object;
 
 type Ident = AnyFunc | string | number;
 const getName = (ident: Ident) => isFunction(ident) ? ident.name : ident;
@@ -8,7 +7,7 @@ const getName = (ident: Ident) => isFunction(ident) ? ident.name : ident;
 type Trigger = Key;
 type Action = Ident;
 type State = Ident;
-type Transition = Record<Trigger, Action>;
+type Transition = Record<Trigger, Action & Ref>;
 type Ref = { next?: State; event?: Ident };
 
 export default (tokens: string[], ...idents: Ident[]) => {
@@ -20,7 +19,7 @@ export default (tokens: string[], ...idents: Ident[]) => {
     table = new Map<State, Transition>(),
     context = {};
 
-  let currentState: Transition, index = 0;
+  let currentState: Transition, currentKey: State, index = 0;
   for (const [transition, trigger] of symbols) {
     let current1: Ident, current2: Ident, next: Ident;
     const from = transition.startsWith("<-"), into = transition.endsWith("->");
@@ -48,7 +47,7 @@ export default (tokens: string[], ...idents: Ident[]) => {
             [getName(event)]: [event, next].some(isFunction)
               ? (nextFn = {
                 [nextName]: (...args: unknown[]) => {
-                  currentState = table.get(next); // transition
+                  currentState = table.get(currentKey = next); // transition
                   let result: unknown; // transition:act => (next:act |> event:act)
                   if (isFunction(next)) result = next.apply(context, args);
                   return isFunction(event)
@@ -67,12 +66,15 @@ export default (tokens: string[], ...idents: Ident[]) => {
     } else throw SyntaxError(`found "${trigger}" instead of "@"`);
   }
 
-  return class {
+  return class Machine {
     constructor(startState: State) {
       currentState = table.get(startState);
-      return new Proxy(() => currentState, {
-        get: (target, property) => currentState[property],
-      });
+      return new Proxy(
+        defineProperty(() => currentState, Symbol.species, {
+          get: () => isConstructable(currentKey) ? currentKey : Machine,
+        }),
+        { get: (target, property) => currentState[property] },
+      );
     }
     static table = table; // used for serialization
   };
