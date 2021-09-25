@@ -8,6 +8,9 @@ const { isArray } = Array;
 export const isFunction = (value: unknown): value is Function =>
   typeof value === "function";
 
+export const isNumber = (value: unknown): value is number =>
+  typeof value === "number";
+
 export const isNullish = (value: unknown): value is Nullish =>
   [undefined, null].includes(value);
 
@@ -70,6 +73,10 @@ export const partition = <T, R = T>(
 /** @see https://github.com/NixOS/nixpkgs/blob/master/lib/lists.nix#L277 */
 export const toArray = <T>(value: T[] | T): T[] | Nullish =>
   isArray(value) ? value : isNullish(value) ? value : [value];
+
+export const enumToArray = (obj: Record<number, unknown>): unknown[] =>
+  //@ts-ignore filter
+  Array.from({ ...obj, length: max(...keys(obj).filter(isNumber)) + 1 });
 
 /** Something like OOP getter/setter but for function arguments
  *
