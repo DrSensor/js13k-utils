@@ -1,4 +1,4 @@
-import type { AnyFunc } from ".";
+import type { AnyFunc, TypedArray } from ".";
 import { isConstructable, isFunction, partition, toArray } from ".";
 const { assign, defineProperty, values } = Object;
 
@@ -123,12 +123,19 @@ export class Table {
  * const State = logic`${A} -> ${B} @ ${C}`
  *     , table = new Table(State)
  *     , transition = new LUT(State, table)
- * 
+ *
  * let currentState = table.state.get(A)
  *   , event = table.state.get(C)
- * 
+ *
  * let nextState: number = transition[currentState][event]
  * assert(nextState === table.state.get(B))
+ * deepAssert(transition === [
+ * //--value--B----------------\
+ * //         |                |
+ *           [1],//--A--index--|
+ * //         |                |
+ * //--index--C----------------/
+ * ])
  */
 export class LUT {
   constructor(machine: MachineConstructor, table = new Table(machine)) {
@@ -141,6 +148,70 @@ export class LUT {
     }
     return result;
   }
+}
+
+_:
+`
+0 -> 1
+1 -> 0 @ 1
+1 -> 2
+0 -> 3 @ 2
+`;
+_:
+[
+  /*0*/ [1],
+  /*1*/ [2, 0],
+  /*2*/ [],
+  /*3*/ [],
+];
+
+export const encode = (
+  machine: MachineConstructor,
+  table = new LUT(machine) as number[][],
+  ): [TypedArray, SourceMap] => {
+    // TODO: return/preserve original 1D index so it can still be accessed as result[currentState] === transitionTable
+    table = table.sort((_t, t_) => _t.length - t_.length); // sorting will cause losing the info of currentState index
+    return;
+  };
+  
+/** (nonzero_u8:groupLength) ([nonzero_inc_u8]:strides) ([nonzero_inc_u8]:offsets) ([u8]:contiguous-LUT)
+ * (2) (1 2 3) (1 3) ( (1) ((1 2) (2 1) (3 2)) ((3 4 2) ...) )
+ * strides[n] = n + 1
+ * offsets[n] = strides.length + n
+ * strides.length = groupLength
+ * offsets.length = groupLength - 1
+ * LUT.length = Buffer.length - offsets.length - strides.length - 1
+ * LUT[g].length = strides[g] * (offsets[g] ?? 1)
+// BUG: get actual next state index
+//  * LUT[g][e] = (strides[g] * (offsets[g-1] ?? 1) * e+1) + ((strides.length + offsets.length + 1) - (LUT[g-1].length ?? 0))
+//  * LUT[1][0] = (2 * 2 * 1) + ((3 + 2 + 1) - (1 * 1))
+//  * LUT[1][0] = (3 * 3 * 1) + ((2 + 1 + 1) - (2 * 1))
+ */
+const decode = (bin: TypedArray, source: SourceMap): Machine => {
+  return;
+};
+
+interface SourceMap {
+  state: Record<number, string>;
+  event: Record<number, string>;
+  indexMap: Record<number, number>; // store info about currentState indexes before the LUT table is sorted
+  uniqueness: {
+    strides: number[];
+    offsets: number[];
+  };
+}
+
+interface Stats {
+  // Event is other name for Edge label in graph theory
+  totalEvent: number; // exclude eventless/transient transition
+  hasTransientTransition: boolean; // event with no name
+  // State is other name for Node in graph theory
+  totalState: number;
+  totalFinalState: number; // it's possible to have more than one final state
+  // Transition is other name for Node Edges in graph theory
+  maxTransition: number;
+  minTransition: number; // zero mean it has final State
+  totalTransition: number;
 }
 
 export const ttable = <T>(machine): T[][] => {
@@ -165,3 +236,13 @@ export const autoSerialize = (machine) => {
   // #define A(x,y) a[x*width + y]
   throw "Unimplemented";
 };
+
+type Machine = Record<
+  string,
+  & Record<Trigger, Ident>
+  & (() => MachineConstructor["table"])
+>;
+interface MachineConstructor {
+  new (startState: State): Machine;
+  table: Map<State, Transition>;
+}

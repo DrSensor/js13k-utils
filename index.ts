@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSFAP
 
 const { PI, min, max, round, sign, abs } = Math;
-const { assign } = Object;
+const { assign, getPrototypeOf } = Object;
 const { iterator } = Symbol;
 const { isArray } = Array;
 
@@ -155,4 +155,15 @@ export type Defined = Key | boolean | bigint;
 
 export type Nullish = undefined | null;
 
-export type Key = string | number | symbol;
+// TODO: deprecate TypedArray interface when https://developer.mozilla.org/en-US/docs/Web/API/ArrayBufferView shipped
+export const TypedArray = getPrototypeOf(Int8Array) as never;
+export type TypedArray = ArrayLike<any> & {
+  BYTES_PER_ELEMENT: number;
+  set(array: ArrayLike<number>, offset?: number): void;
+  slice(start?: number, end?: number): TypedArray;
+};
+export type TypedArrayConstructor<T> = {
+  new (): T;
+  new (buffer: ArrayBuffer): T;
+  BYTES_PER_ELEMENT: number;
+};
