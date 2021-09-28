@@ -25,6 +25,12 @@ export const randomSet = (...args: ([number, number] | number)[]) => {
 export const random = ($1: number, $2 = 0) =>
   Math.random() * (max($1, $2) - min($1, $2)) + min($1, $2);
 
+export const randomHex = (length: number) =>
+  Array.from(
+    crypto.getRandomValues(new Uint8Array(length)),
+    (it) => it.toString(16).padStart(2, "0"),
+  ).join("");
+
 export const clamp = ($min: number, $max: number) =>
   (value: number) => min(max(value, $min), $max);
 
@@ -69,6 +75,25 @@ export const partition = <T, R = T>(
   }
   return result;
 };
+
+export const Map2Record = <
+  K,
+  V,
+  TK extends Arity1<K> = Arity1<K, K>,
+  TV extends Arity1<V> = Arity1<V, V>,
+>(
+  map: Map<K, V>,
+  transformValue = noop as TV,
+  transformKey = noop as TK,
+): Record<ReturnType<TK>, ReturnType<TV>> => {
+  const result = {} as ReturnType<typeof Map2Record>;
+  for (const [index, value] of map) {
+    result[transformKey(index)] = transformValue(value);
+  }
+  return result;
+};
+
+export const noop = <T>(arg: T) => arg;
 
 /** @see https://github.com/NixOS/nixpkgs/blob/master/lib/lists.nix#L277 */
 export const toArray = <T>(value: T[] | T): T[] | Nullish =>
@@ -136,6 +161,8 @@ type Accessor<T extends [...any[]]> =
 export type Values<T> = T[keyof T];
 
 export type AnyCtor = new (...args: any[]) => any;
+
+export type Arity1<T, V = any> = (arg: T) => V;
 
 export type AnyArrow = (...args: any[]) => any;
 

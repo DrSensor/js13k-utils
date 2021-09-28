@@ -1,5 +1,12 @@
-import type { AnyFunc, TypedArray } from ".";
-import { isConstructable, isFunction, partition, toArray } from ".";
+import { AnyFunc, isNullish, Key, TypedArray } from ".";
+import {
+  isConstructable,
+  isFunction,
+  Map2Record,
+  partition,
+  randomHex,
+  toArray,
+} from ".";
 const { assign, defineProperty, values } = Object;
 
 type Ident = AnyFunc | string | number;
@@ -106,15 +113,17 @@ export class Table {
     let stateIndex = 0, eventIndex = 0;
     const { state, event, inverse } = this;
     for (const [s, transition] of table) {
-      state.set(inverse.state[stateIndex] = s, stateIndex++);
+      inverse.state.set(stateIndex, s);
+      state.set(s, stateIndex++);
       for (const { event: e } of values(transition)) {
-        event.set(inverse.event[eventIndex] = e, eventIndex++);
+        inverse.event.set(eventIndex, e);
+        event.set(e, eventIndex++);
       }
     }
   }
   inverse = {
-    state: {} as Record<number, Ident>,
-    event: {} as Record<number, Ident>,
+    state: new Map<number, Ident>(),
+    event: new Map<number, Ident>(),
   };
 }
 
@@ -165,15 +174,31 @@ _:
   /*3*/ [],
 ];
 
-export const encode = (
+const qualifiedName = (ident: Ident) => getName(ident) || randomHex(6);
+
+export const encode = <
+  T extends new (array: ArrayLike<number>) => ArrayLike<number> =
+    Uint8ArrayConstructor,
+>(
   machine: MachineConstructor,
-  table = new LUT(machine) as number[][],
-  ): [TypedArray, SourceMap] => {
-    // TODO: return/preserve original 1D index so it can still be accessed as result[currentState] === transitionTable
-    table = table.sort((_t, t_) => _t.length - t_.length); // sorting will cause losing the info of currentState index
-    return;
-  };
-  
+  lookupTable?: LUT, //@ts-ignore ts-bug: since <T extends ... = Uint8ArrayConstructor> doesn't produce error
+  TypedArray = Uint8Array as T,
+): [InstanceType<T>, SourceMap] => {
+  const table = new Table(machine),
+    lut = (lookupTable ?? new LUT(machine)) as number[][];
+
+  const sortedTable = [...lut.entries()]
+      .sort(([, _t], [, t_]) => _t.length - t_.length),
+    data = sortedTable.flatMap(([, t]) => t.map((s) => isNullish(s) ? 0 : ++s)); // shift/add all state value to 1 to support null/undefined in LUT table
+
+  const indexMap = sortedTable.map(([index]) => index);
+  const { state: s, event: e } = table.inverse, rid = randomHex(6);
+  const event = Map2Record(e, (ident) => getName(ident) || rid);
+  const state = Map2Record(s, qualifiedName, (index) => ++index); // shift/add all state value to 1 to support null/undefined in LUT table
+
+  return [new TypedArray(data) as InstanceType<T>, { state, event, indexMap }];
+};
+
 /** (nonzero_u8:groupLength) ([nonzero_inc_u8]:strides) ([nonzero_inc_u8]:offsets) ([u8]:contiguous-LUT)
  * (2) (1 2 3) (1 3) ( (1) ((1 2) (2 1) (3 2)) ((3 4 2) ...) )
  * strides[n] = n + 1
@@ -192,13 +217,9 @@ const decode = (bin: TypedArray, source: SourceMap): Machine => {
 };
 
 interface SourceMap {
-  state: Record<number, string>;
-  event: Record<number, string>;
+  state: Record<number, string | number>;
+  event: Record<number, string | number>;
   indexMap: Record<number, number>; // store info about currentState indexes before the LUT table is sorted
-  uniqueness: {
-    strides: number[];
-    offsets: number[];
-  };
 }
 
 interface Stats {
