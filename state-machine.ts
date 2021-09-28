@@ -1,4 +1,4 @@
-import { AnyFunc, isNullish, Key, TypedArray } from ".";
+import { AnyFunc, isNullish, TypedArray } from ".";
 import {
   isConstructable,
   isFunction,
@@ -12,7 +12,7 @@ const { assign, defineProperty, values } = Object;
 type Ident = AnyFunc | string | number;
 const getName = (ident: Ident) => isFunction(ident) ? ident.name : ident;
 
-type Trigger = Key;
+type Trigger = PropertyKey;
 type Action = Ident;
 type State = Ident;
 type Transition = Record<Trigger, Action & Ref>;

@@ -8,7 +8,7 @@ const JSX_MODE = process.env.JSX_MODE;
 const JSX_STATE_PROPERTY = process.env.JSX_STATE_PROPERTY ?? "value";
 const JSX_REF_ATTRIBUTE = process.env.JSX_REF_ATTRIBUTE;
 
-import type { Key, Never, NonLiteral, Primitive } from ".";
+import type { Never, NonLiteral, Primitive } from ".";
 const { entries, defineProperties, assign } = Object;
 
 const Fragment = null;
@@ -61,7 +61,7 @@ export const as = <T extends Element>(trait = Element): JSX.Ref<T> => {
   }) as JSX.Ref<T>;
 };
 
-const jsx = (tag, props = {} as Record<Key, any>, ...children) => {
+const jsx = (tag, props = {} as Record<PropertyKey, any>, ...children) => {
   const { [JSX_REF_ATTRIBUTE]: deassign = {}, ...props$ } = props;
   switch (typeof tag) { // apply JSX.State
     case "string":

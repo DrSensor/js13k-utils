@@ -166,7 +166,7 @@ export type Arity1<T, V = any> = (arg: T) => V;
 
 export type AnyArrow = (...args: any[]) => any;
 
-export type AnyFunc = (this: Record<Key, any> | void, ...args: any[]) => any;
+export type AnyFunc = (this: Record<PropertyKey, any> | void, ...args: any[]) => any;
 
 export type NotSame<T1, T2> = T1 extends T2 ? never : T1;
 
@@ -185,7 +185,7 @@ export type NonLiteral<T> = T extends string ? string
 export type Primitive = Exclude<Defined, symbol>;
 
 /** @see https://github.com/Microsoft/TypeScript/issues/7648#issuecomment-541625573 */
-export type Defined = Key | boolean | bigint;
+export type Defined = PropertyKey | boolean | bigint;
 
 export type Nullish = undefined | null;
 
