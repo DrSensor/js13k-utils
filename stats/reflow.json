@@ -1,0 +1,16 @@
+{
+  "measure": {
+    "HTMLElement": ["offset*", "client*", "get*", "focus"],
+    "Document": ["scrollingElement", "elementFromPoint"],
+    "Window": ["scroll*", "inner*", "visualViewport.*", "getComputedStyle"],
+    "MouseEvent": ["layer*", "offset*"],
+    "Range": ["get*"],
+    "SVG": ["compute*", "get*"],
+    "SVGTextContent": ["selectSubString"],
+    "SVGUse": ["instanceRoot"]
+  },
+  "mutate": {
+    "HTMLElement": ["focus", "select"],
+    "Element": ["scroll*", "innerText"]
+  }
+}

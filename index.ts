@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: FSFAP
 
 const { PI, min, max, round, sign, abs } = Math;
-const { assign, getPrototypeOf } = Object;
+const { assign, keys, getPrototypeOf } = Object;
 const { iterator } = Symbol;
 const { isArray } = Array;
 
 export const isFunction = (value: unknown): value is Function =>
   typeof value === "function";
+
+export const isSymbol = (value: unknown): value is symbol =>
+  typeof value === "symbol";
 
 export const isNumber = (value: unknown): value is number =>
   typeof value === "number";
@@ -17,13 +20,21 @@ export const isNullish = (value: unknown): value is Nullish =>
 export const isConstructable = (value: unknown): value is AnyCtor =>
   typeof value === "function" ? !!value.constructor : false;
 
+export const isCallable = (value: unknown): value is AnyArrow => {
+  throw "Impossible";
+};
+
 export const randomSet = (...args: ([number, number] | number)[]) => {
   const set = args[round(random(args.length - 1))];
-  return random(...(set[0] ? set : [set]) as [number]);
+  return random(...(isArray(set) ? set : [set]) as [number]);
 };
 
 export const random = ($1: number, $2 = 0) =>
   Math.random() * (max($1, $2) - min($1, $2)) + min($1, $2);
+
+export const random64 = (length: number) =>
+  //@ts-ignore ts-bug: somehow it refer to @types/node/buffer.d.ts instead of typescript/lib/lib.dom.d.ts
+  btoa(crypto.getRandomValues(new Uint8Array(length)));
 
 export const randomHex = (length: number) =>
   Array.from(
@@ -95,6 +106,8 @@ export const Map2Record = <
 
 export const noop = <T>(arg: T) => arg;
 
+export const toString = <T>(arg: T) => arg.toString();
+
 /** @see https://github.com/NixOS/nixpkgs/blob/master/lib/lists.nix#L277 */
 export const toArray = <T>(value: T[] | T): T[] | Nullish =>
   isArray(value) ? value : isNullish(value) ? value : [value];
@@ -126,8 +139,8 @@ export const enumToArray = (obj: Record<number, unknown>): unknown[] =>
  * @returns same function but iterable (it's not array)
  */
 export const make = <T extends AnyArrow>(
-  fn: T,
-  args = [] as Parameters<T>,
+  fn: T, //@ts-ignore ts-bug: sometimes error but sometimes not 😞
+  args: Parameters<T> = [],
   setter = (
     setArg: VArgs<T>,
     callArg: VArgs<T>,
@@ -196,8 +209,37 @@ export type TypedArray = ArrayLike<any> & {
   set(array: ArrayLike<number>, offset?: number): void;
   slice(start?: number, end?: number): TypedArray;
 };
-export type TypedArrayConstructor<T> = {
-  new (): T;
-  new (buffer: ArrayBuffer): T;
-  BYTES_PER_ELEMENT: number;
+export type TypedArrayConstructor<T extends TypedArray = TypedArray> = {
+  new (length: number): T;
+  new (array: ArrayLike<number> | ArrayBufferLike): T;
+  new (
+    buffer: ArrayBufferLike,
+    byteOffset?: number,
+    length?: number,
+  ): T;
+  readonly BYTES_PER_ELEMENT: number;
+
+  /**
+     * Returns a new array from a set of elements.
+     * @param items A set of elements to include in the new array object.
+     */
+  of(...items: number[]): T;
+
+  /**
+     * Creates an array from an array-like or iterable object.
+     * @param arrayLike An array-like or iterable object to convert to an array.
+     */
+  from(arrayLike: ArrayLike<number>): T;
+
+  /**
+     * Creates an array from an array-like or iterable object.
+     * @param arrayLike An array-like or iterable object to convert to an array.
+     * @param mapfn A mapping function to call on every element of the array.
+     * @param thisArg Value of 'this' used to invoke the mapfn.
+     */
+  from<T>(
+    arrayLike: ArrayLike<T>,
+    mapfn: (v: T, k: number) => number,
+    thisArg?: any,
+  ): T;
 };

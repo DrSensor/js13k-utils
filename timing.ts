@@ -3,6 +3,7 @@
 /// origin https://javascript.info/call-apply-decorators
 // TODO: support async..await, yield, and async..yield..await
 
+export { fps2ms as hz2ms, ms2fps as ms2hz };
 export const fps2ms = (fps: number) => 1e3 / fps,
   ms2fps = (ms: number) => 1e3 * ms,
   sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

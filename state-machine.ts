@@ -163,13 +163,13 @@ _:
 `
 0 -> 1
 1 -> 0 @ 1
-1 -> 2
+1 -> 2 @ 1
 0 -> 3 @ 2
 `;
 _:
 [
-  /*0*/ [1],
-  /*1*/ [2, 0],
+  /*0*/ [1, , 3],
+  /*1*/ [, 2, 0],
   /*2*/ [],
   /*3*/ [],
 ];
@@ -212,7 +212,7 @@ export const encode = <
 //  * LUT[1][0] = (2 * 2 * 1) + ((3 + 2 + 1) - (1 * 1))
 //  * LUT[1][0] = (3 * 3 * 1) + ((2 + 1 + 1) - (2 * 1))
  */
-const decode = (bin: TypedArray, source: SourceMap): Machine => {
+const decode = (bin: TypedArray, source: SourceMap): number[][] => {
   return;
 };
 
@@ -243,11 +243,13 @@ export const ttable = <T>(machine): T[][] => {
   ];
 
   // nextState = table[currentState][event]
+  // nextNextState = table[nextState][event]
 };
 
 export const quickSerialize = (machine, buffer = Uint8Array) => {
   // 1. calculate bufferSize = columnLength * rowLength
   throw "Unimplemented";
+  // TODO: use strided array
 };
 
 export const autoSerialize = (machine) => {
